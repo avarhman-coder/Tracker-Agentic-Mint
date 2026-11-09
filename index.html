@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Agentic Mint Tracker — build v7-universal (10 Nov 2026) -->
+<title>Agentic Mint Tracker — Radar Mint Agent BSC</title>
+<style>
+  :root{ --bg:#0b0f0c; --panel:#121813; --line:#223026; --txt:#e6f2e6; --mut:#8fae94; --acc:#37e08b; --acc2:#ffd34d; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--txt); font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  header{ padding:14px 16px 8px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px 16px; align-items:baseline; }
+  h1{ font-size:18px; margin:0; letter-spacing:.5px; }
+  .live{ color:var(--acc); font-size:12px; }
+  .live b{ animation:pulse 1.2s infinite; display:inline-block; }
+  @keyframes pulse{ 50%{ opacity:.25; } }
+  #status{ color:var(--mut); font-size:12px; }
+  button{ background:var(--panel); color:var(--txt); border:1px solid var(--line); padding:6px 12px; cursor:pointer; font:inherit; font-size:12px; }
+  button:hover{ border-color:var(--acc); }
+  .stats{ display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; }
+  .stat{ background:var(--panel); border:1px solid var(--line); padding:8px 12px; min-width:130px; }
+  .stat .k{ color:var(--mut); font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
+  .stat .v{ font-size:16px; margin-top:2px; }
+  nav{ display:flex; gap:8px; padding:0 16px 12px; }
+  nav button.active{ background:var(--acc); color:#06240f; font-weight:bold; }
+  main{ padding:0 16px 24px; overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td{ text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th{ color:var(--mut); font-weight:normal; text-transform:uppercase; font-size:10.5px; }
+  a{ color:var(--acc); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  .nm{ color:var(--acc2); cursor:pointer; background:none; border:none; padding:0; font:inherit; text-align:left; }
+  .nm:hover{ text-decoration:underline; }
+  .bar{ background:#1c2a1f; height:8px; min-width:90px; position:relative; }
+  .bar i{ position:absolute; inset:0 auto 0 0; background:var(--acc); }
+  .free{ color:var(--acc); }
+  dialog{ background:var(--panel); color:var(--txt); border:1px solid var(--acc); max-width:520px; width:92vw; }
+  dialog::backdrop{ background:rgba(0,0,0,.7); }
+  dialog h2{ margin:0 0 4px; font-size:16px; }
+  dialog .row{ margin:8px 0; font-size:13px; }
+  dialog .k{ color:var(--mut); font-size:10.5px; text-transform:uppercase; }
+  .desc{ white-space:pre-wrap; line-height:1.5; }
+  footer{ padding:0 16px 20px; color:var(--mut); font-size:11px; line-height:1.6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛰️ AGENTIC MINT TRACKER</h1>
+  <span class="live"><b>●</b> LIVE · refresh tiap 5 dtk</span>
+  <span id="status">memuat…</span>
+  <button id="refreshBtn" type="button">PERBARUI</button>
+</header>
+
+<section class="stats" id="stats"></section>
+
+<nav>
+  <button type="button" data-tab="nft" class="active">MINT NFT · <span id="cNft">0</span></button>
+  <button type="button" data-tab="tokens">TOKEN · <span id="cTok">0</span></button>
+  <button type="button" data-tab="contracts">KONTRAK · <span id="cCon">0</span></button>
+  <button type="button" data-tab="jagent">JAGENT · <span id="cJag">0</span></button>
+</nav>
+
+<main>
+  <table id="tblNft">
+    <thead><tr><th>Waktu</th><th>Nama NFT</th><th>Token ID</th><th>Harga</th><th>Suplai</th><th>Wallet</th><th>Tx</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <table id="tblTok" hidden>
+    <thead><tr><th>Waktu</th><th>Token</th><th>Harga Mint</th><th>Harga Pasar</th><th>Jumlah</th><th>Arah</th><th>Agent</th><th>Tx</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <table id="tblCon" hidden>
+    <thead><tr><th>Kontrak</th><th>Harga</th><th>Progres suplai</th><th>Sisa</th><th>% Agent</th><th>Mint terakhir</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div id="paneJag" hidden>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+      <span id="jagSummary" style="color:var(--mut);font-size:12px">Daftar wallet JAGENT belum disinkronkan.</span>
+      <button type="button" id="jagSync">SINKRONKAN</button>
+      <input id="jagSearch" type="text" placeholder="Cari wallet / Agent ID…"
+        style="background:var(--panel);color:var(--txt);border:1px solid var(--line);padding:6px 10px;font:inherit;font-size:12px;min-width:230px">
+    </div>
+    <table id="tblJagFind" hidden>
+      <thead><tr><th>Wallet</th><th>Agent ID</th><th>Epoch</th><th>Share</th><th>Dibayar</th><th>JAGENT sekarang</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <table id="tblJag">
+      <thead><tr><th>Waktu</th><th>Wallet JAGENT</th><th>Jenis</th><th>Proyek / Token</th><th>Harga / Jumlah</th><th>Tx</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</main>
+
+<dialog id="dlg">
+  <h2 id="dName">Detail</h2>
+  <div class="row" id="dAddr"></div>
+  <div class="row" id="dImg"></div>
+  <div class="row" id="dPrice"></div>
+  <div class="row"><span class="k">Deskripsi proyek (dari kontraknya sendiri)</span><div class="desc" id="dDesc">…</div></div>
+  <div class="row"><span class="k">Website &amp; media sosial</span><div id="dLinks">memuat…</div></div>
+  <div class="row"><span class="k">Jejak pencarian lain</span><div id="dHunt"></div></div>
+  <div class="row" id="dScan"></div>
+  <button type="button" id="dClose">Tutup</button>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = { nft: new Map(), tokens: new Map(), contracts: [], lastSync: null, tab: "nft", prices: new Map(), mintCost: new Map() };
+const jag = { wallets: new Map(), totals: null, syncedAt: null, activity: [], actKeys: new Set() };
+function storeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* penyimpanan penuh/tidak tersedia */ } }
+function storeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function loadLists() {
+  // Pulihkan daftar dari penyimpanan browser supaya membuka ulang halaman
+  // langsung menampilkan riwayat yang sudah terkumpul, tidak mulai dari nol.
+  for (const [key, map] of [["tracker_nft_v1", state.nft], ["tracker_tokens_v1", state.tokens]]) {
+    const raw = storeGet(key);
+    if (!raw) continue;
+    try { for (const r of JSON.parse(raw)) map.set(key === "tracker_nft_v1" ? `${r.tx}:${r.log_index}:${r.token_id}` : `${r.tx}:${r.token}:${r.agent}:${r.amount_raw}`, r); } catch { /* abaikan */ }
+  }
+}
+function saveLists() {
+  storeSet("tracker_nft_v1", JSON.stringify([...state.nft.values()].slice(-500)));
+  storeSet("tracker_tokens_v1", JSON.stringify([...state.tokens.values()].slice(-500)));
+}
+function loadMintCost() {
+  const raw = storeGet("tracker_mintcost_v1");
+  if (!raw) return;
+  try { for (const [k, v] of JSON.parse(raw)) state.mintCost.set(k, v); } catch { /* abaikan */ }
+}
+function saveMintCost() {
+  storeSet("tracker_mintcost_v1", JSON.stringify([...state.mintCost.entries()].slice(-600)));
+}
+function loadJag() {
+  const w = storeGet("jagent_wallets_v1");
+  if (w) {
+    try {
+      const j = JSON.parse(w);
+      jag.wallets = new Map(j.wallets.map((x) => [x.w, x]));
+      jag.totals = j.totals; jag.syncedAt = j.synced_at;
+    } catch { /* abaikan data rusak */ }
+  }
+  const a = storeGet("jagent_activity_v1");
+  if (a) {
+    try { jag.activity = JSON.parse(a); jag.actKeys = new Set(jag.activity.map((x) => x.k)); } catch { /* abaikan */ }
+  }
+}
+function saveJagWallets() {
+  storeSet("jagent_wallets_v1", JSON.stringify({ wallets: [...jag.wallets.values()], totals: jag.totals, synced_at: jag.syncedAt }));
+}
+function saveJagActivity() { storeSet("jagent_activity_v1", JSON.stringify(jag.activity.slice(0, 500))); }
+
+async function syncJagent() {
+  const btn = $("#jagSync"); btn.textContent = "MENYINKRONKAN…"; btn.disabled = true;
+  try {
+    const j = await getJSON("/api/jagent");
+    jag.wallets = new Map(j.wallets.map((x) => [x.w, x]));
+    jag.totals = j.totals; jag.syncedAt = j.synced_at;
+    saveJagWallets();
+    matchJagActivity(); renderJag();
+    btn.textContent = "SINKRONKAN";
+  } catch (e) {
+    btn.textContent = "GAGAL — COBA LAGI";
+  }
+  btn.disabled = false;
+}
+
+function matchJagActivity() {
+  if (!jag.wallets.size) return;
+  let added = false;
+  const add = (k, item) => { if (!jag.actKeys.has(k)) { jag.actKeys.add(k); jag.activity.push({ k, ...item }); added = true; } };
+  for (const r of state.nft.values()) {
+    const info = jag.wallets.get((r.wallet || "").toLowerCase());
+    if (info) add("n:" + r.tx + ":" + r.token_id, { ts: r.ts, w: r.wallet, a: info.a, e: info.e, kind: "Mint NFT", name: (r.contract_name || "?") + " #" + r.token_id, addr: r.contract, val: r.price_bnb > 0 ? r.price_bnb + " BNB" : "GRATIS", tx: r.tx });
+  }
+  for (const r of state.tokens.values()) {
+    const info = jag.wallets.get((r.agent || "").toLowerCase());
+    if (info) add("t:" + r.tx + ":" + r.token + ":" + r.amount_raw, { ts: r.ts, w: r.agent, a: info.a, e: info.e, kind: "Token", name: r.symbol || "?", addr: r.token, val: fmtN(r.amount_ui), tx: r.tx });
+  }
+  if (added) {
+    jag.activity.sort((x, y) => y.ts - x.ts);
+    jag.activity = jag.activity.slice(0, 500);
+    jag.actKeys = new Set(jag.activity.map((x) => x.k));
+    saveJagActivity();
+  }
+}
+
+function renderJag() {
+  const t = jag.totals;
+  $("#jagSummary").textContent = jag.wallets.size
+    ? `${fmtN(jag.wallets.size)} wallet JAGENT tersinkron (epoch 1: ${fmtN(t?.epochs?.["1"] || 0)} · 2: ${fmtN(t?.epochs?.["2"] || 0)} · 3: ${fmtN(t?.epochs?.["3"] || 0)} · 4: ${fmtN(t?.epochs?.["4"] || 0)}) · total share ${fmtN(t?.shares || 0)} · ${fmtN(jag.activity.length)} aktivitas mint terpantau sejak sinkron`
+    : "Daftar wallet JAGENT belum disinkronkan — ketuk SINKRONKAN untuk mengimpor dari Google Sheet publik \"JAGENT epochs 1-4\".";
+  $("#tblJag tbody").innerHTML = jag.activity.map((r) => `<tr>
+    <td>${fmtT(r.ts)}</td>
+    <td><a href="${scan("address", r.w)}" target="_blank" rel="noopener">${esc(r.a || short(r.w))}</a> <span style="color:var(--mut)">(epoch ${esc(r.e)})</span></td>
+    <td>${esc(r.kind)}</td><td>${nameBtn(r.name, r.addr)}</td><td>${esc(r.val)}</td>
+    <td><a href="${scan("tx", r.tx)}" target="_blank" rel="noopener">${short(r.tx)}</a></td></tr>`).join("") ||
+    `<tr><td colspan="6" style="color:var(--mut)">Belum ada aktivitas dari wallet JAGENT yang tertangkap feed sejak daftar disinkronkan. Feed terus dipindai tiap 5 detik selama halaman terbuka.</td></tr>`;
+  $("#cJag").textContent = jag.activity.length;
+}
+
+function renderJagFind() {
+  const q = ($("#jagSearch").value || "").trim().toLowerCase();
+  const tbl = $("#tblJagFind");
+  if (!q || !jag.wallets.size) { tbl.hidden = true; return; }
+  const hits = [...jag.wallets.values()].filter((x) => x.w.includes(q) || (x.a || "").toLowerCase().includes(q)).slice(0, 20);
+  tbl.hidden = false;
+  tbl.querySelector("tbody").innerHTML = hits.map((x) => `<tr>
+    <td><a href="${scan("address", x.w)}" target="_blank" rel="noopener">${short(x.w)}</a></td>
+    <td>${esc(x.a || "—")}</td><td>${esc(x.e)}</td><td>${fmtN(x.s)}</td><td>${fmtN(x.p)} USDT</td><td>${fmtN(x.j)}</td></tr>`).join("") ||
+    `<tr><td colspan="6" style="color:var(--mut)">Tidak ada wallet yang cocok.</td></tr>`;
+}
+const fmtN = (n) => n == null ? "—" : Number(n).toLocaleString("id-ID");
+const fmtUsd = (p) => p == null || !(p > 0) ? "—" : p >= 1 ? "$" + p.toFixed(2) : p >= 0.01 ? "$" + p.toFixed(4) : "$" + Number(p.toPrecision(2)).toString();
+const fmtT = (ts) => new Date(ts * 1000).toLocaleTimeString("id-ID");
+const short = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "—";
+const scan = (kind, v) => `https://bscscan.com/${kind}/${v}`;
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function getJSON(u) { const r = await fetch(u); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+let costBusy = false;
+async function updateMintCosts() {
+  if (costBusy || !state.tokens.size) return;
+  const missing = [];
+  const seen = new Set();
+  for (const r of [...state.tokens.values()].sort((a, b) => b.ts - a.ts)) {
+    const h = (r.tx || "").toLowerCase();
+    if (h && !state.mintCost.has(h) && !seen.has(h)) { seen.add(h); missing.push(h); if (missing.length >= 25) break; }
+  }
+  if (!missing.length) return;
+  costBusy = true;
+  try {
+    const j = await getJSON("/api/mintcost?txs=" + missing.join(","));
+    for (const [h, c] of Object.entries(j.costs || {})) if (!c.unknown) state.mintCost.set(h, c);
+    saveMintCost();
+    renderTables();
+  } catch { /* gagal -> dicoba lagi siklus berikut */ }
+  costBusy = false;
+}
+const fmtMintCost = (tx) => {
+  const c = state.mintCost.get((tx || "").toLowerCase());
+  if (!c) return "…";
+  return c.paid ? esc(c.amount) + " " + esc(c.asset) : '<span class="free">GRATIS</span>';
+};
+
+let priceBusy = false;
+async function updatePrices() {
+  if (priceBusy || !state.tokens.size) return;
+  priceBusy = true;
+  try {
+    const seen = new Set(); const addrs = [];
+    for (const r of [...state.tokens.values()].sort((a, b) => b.ts - a.ts)) {
+      const a = (r.token || "").toLowerCase();
+      if (a && !seen.has(a)) { seen.add(a); addrs.push(a); if (addrs.length >= 30) break; }
+    }
+    if (addrs.length) {
+      const j = await getJSON("/api/prices?addrs=" + addrs.join(","));
+      for (const [a, p] of Object.entries(j.prices || {})) state.prices.set(a, p);
+      renderTables();
+    }
+  } catch { /* harga gagal dimuat -> kolom tetap "—", dicoba lagi siklus berikut */ }
+  priceBusy = false;
+}
+
+async function refresh() {
+  try {
+    const [pulse, tstats, nft, tokens, contracts] = await Promise.all([
+      getJSON("/api/feed?type=pulse"), getJSON("/api/feed?type=tokenstats"),
+      getJSON("/api/feed?type=nft"), getJSON("/api/feed?type=tokens"), getJSON("/api/feed?type=contracts"),
+    ]);
+    for (const row of nft) state.nft.set(`${row.tx}:${row.log_index}:${row.token_id}`, row);
+    for (const row of tokens) state.tokens.set(`${row.tx}:${row.token}:${row.agent}:${row.amount_raw}`, row);
+    state.contracts = contracts;
+    if (state.nft.size > 500) state.nft = new Map([...state.nft].slice(-500));
+    if (state.tokens.size > 500) state.tokens = new Map([...state.tokens].slice(-500));
+    saveLists();
+    state.lastSync = Date.now();
+    updatePrices();
+    updateMintCosts();
+    matchJagActivity();
+    renderStats(pulse, tstats); renderTables(); renderJag();
+    $("#status").textContent = "sinkron " + Math.floor((Date.now() - state.lastSync) / 1000) + " dtk lalu · blok #" + fmtN(pulse.last_block);
+  } catch (e) {
+    $("#status").textContent = "gagal ambil data (" + e.message + ") — mencoba lagi otomatis";
+  }
+}
+
+function renderStats(p, t) {
+  const items = [
+    ["Total mint agent", fmtN(p.agent_mints)], ["Pangsa agent", (p.share_pct ?? "—") + "%"],
+    ["Mint 1 jam terakhir", fmtN(p.last_hour)], ["Blok terakhir", fmtN(p.last_block)],
+    ["Total token", fmtN(t.tokens)], ["Likuiditas", fmtN(Math.round(t.liquidity_bnb || 0)) + " BNB"],
+  ];
+  $("#stats").innerHTML = items.map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+}
+
+function nameBtn(name, address, tokenId) {
+  const tid = tokenId != null ? ` data-tid="${esc(tokenId)}"` : "";
+  return `<button type="button" class="nm" data-addr="${esc(address)}" data-name="${esc(name || "")}"${tid}>${esc(name || "(tanpa nama)")}</button>`;
+}
+
+function renderTables() {
+  const nftRows = [...state.nft.values()].sort((a, b) => b.ts - a.ts || b.block - a.block);
+  $("#tblNft tbody").innerHTML = nftRows.map((r) => `<tr>
+    <td>${fmtT(r.ts)}</td><td>${nameBtn(r.contract_name, r.contract, r.token_id)} #${esc(r.token_id)}</td>
+    <td>${esc(r.token_id)}</td><td>${r.price_bnb > 0 ? r.price_bnb + " BNB" : '<span class="free">GRATIS</span>'}</td>
+    <td>${fmtN(r.supply)}/${fmtN(r.supply_max)}</td>
+    <td><a href="${scan("address", r.wallet)}" target="_blank" rel="noopener">${short(r.wallet)}</a></td>
+    <td><a href="${scan("tx", r.tx)}" target="_blank" rel="noopener">${short(r.tx)}</a></td></tr>`).join("");
+  const tokRows = [...state.tokens.values()].sort((a, b) => b.ts - a.ts || b.block - a.block);
+  $("#tblTok tbody").innerHTML = tokRows.map((r) => `<tr>
+    <td>${fmtT(r.ts)}</td><td>${nameBtn(r.symbol, r.token)}</td>
+    <td>${fmtMintCost(r.tx)}</td>
+    <td>${fmtUsd(state.prices.get((r.token || "").toLowerCase()))}</td>
+    <td>${fmtN(r.amount_ui)}</td><td>${r.direction === "in" ? "masuk" : "keluar"}</td>
+    <td><a href="${scan("address", r.agent)}" target="_blank" rel="noopener">${short(r.agent)}</a></td>
+    <td><a href="${scan("tx", r.tx)}" target="_blank" rel="noopener">${short(r.tx)}</a></td></tr>`).join("");
+  $("#tblCon tbody").innerHTML = state.contracts.map((r) => {
+    const pct = r.supply_max > 0 ? Math.min(100, (r.supply / r.supply_max) * 100) : 0;
+    return `<tr><td>${nameBtn(r.name, r.contract)}</td>
+    <td>${r.price_bnb > 0 ? r.price_bnb + " BNB" : '<span class="free">GRATIS</span>'}</td>
+    <td><div class="bar"><i style="width:${pct}%"></i></div> ${fmtN(r.supply)}/${fmtN(r.supply_max)}</td>
+    <td>${fmtN(r.left)}</td><td>${r.pct ?? "—"}%</td><td>${fmtT(r.last_ts)}</td></tr>`;
+  }).join("");
+  $("#cNft").textContent = state.nft.size; $("#cTok").textContent = state.tokens.size; $("#cCon").textContent = state.contracts.length;
+}
+
+async function openDetail(address, fallbackName, tokenId) {
+  const d = $("#dlg");
+  $("#dName").textContent = fallbackName || "Detail proyek";
+  $("#dAddr").innerHTML = `<span class="k">Alamat kontrak</span><br><a href="${scan("address", address)}" target="_blank" rel="noopener">${esc(address)}</a>`;
+  $("#dImg").innerHTML = ""; $("#dPrice").textContent = ""; $("#dDesc").textContent = "memuat…"; $("#dLinks").textContent = "memuat…";
+  const q = encodeURIComponent('"' + address + '"');
+  const qn = encodeURIComponent((fallbackName || "") + " BNB Chain mint");
+  $("#dHunt").innerHTML =
+    `<a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">Cari alamat kontrak ini di Google</a> — situs mint proyek biasanya muncul di sini<br>` +
+    `<a href="https://x.com/search?q=${q}" target="_blank" rel="noopener">Cari alamat ini di X</a> · ` +
+    `<a href="https://www.google.com/search?q=${qn}" target="_blank" rel="noopener">Cari nama proyek di Google</a>`;
+  $("#dScan").innerHTML = `<a href="https://dexscreener.com/bsc/${esc(address)}" target="_blank" rel="noopener">Chart DexScreener</a>`;
+  d.showModal();
+  try {
+    const j = await getJSON("/api/detail?address=" + encodeURIComponent(address) + (tokenId != null ? "&tokenId=" + encodeURIComponent(tokenId) : ""));
+    if (j.name) $("#dName").textContent = j.name + (j.symbol ? " (" + j.symbol + ")" : "");
+    if (j.image_url) $("#dImg").innerHTML = `<img src="${esc(j.image_url)}" alt="" style="max-width:180px;max-height:180px;border:1px solid var(--line)">`;
+    if (j.price_usd) $("#dPrice").innerHTML = `<span class="k">Harga</span><br>$${esc(j.price_usd)}`;
+    $("#dDesc").textContent = j.description || "(kontrak tidak mencantumkan deskripsi)";
+    const links = [];
+    (j.websites || []).forEach((u) => links.push(`🌐 <a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a>`));
+    if (j.twitter) links.push(`𝕏 <a href="${esc(j.twitter)}" target="_blank" rel="noopener">${esc(j.twitter)}</a>`);
+    if (j.telegram) links.push(`✈️ <a href="${esc(j.telegram)}" target="_blank" rel="noopener">${esc(j.telegram)}</a>`);
+    if (j.discord) links.push(`💬 <a href="${esc(j.discord)}" target="_blank" rel="noopener">${esc(j.discord)}</a>`);
+    $("#dLinks").innerHTML = links.length ? links.join("<br>") :
+      "Belum terdaftar — proyek ini belum mencantumkan website/media sosial di kontraknya maupun di " +
+      "GeckoTerminal/DexScreener (sumber yang berhasil dihubungi: " + (j.sources?.join(", ") || "—") +
+      "). Untuk mint yang sangat baru itu wajar; coba tautan pencarian di bawahnya, situs mint-nya sering ketemu dari alamat kontrak.";
+  } catch (e) {
+    $("#dDesc").textContent = "(gagal memuat detail: " + e.message + ")"; $("#dLinks").textContent = "—";
+  }
+}
+
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
+  b.classList.add("active"); state.tab = b.dataset.tab;
+  $("#tblNft").hidden = state.tab !== "nft"; $("#tblTok").hidden = state.tab !== "tokens"; $("#tblCon").hidden = state.tab !== "contracts";
+  $("#paneJag").hidden = state.tab !== "jagent";
+}));
+$("#refreshBtn").addEventListener("click", refresh);
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest(".nm");
+  if (b) openDetail(b.dataset.addr, b.dataset.name, b.dataset.tid);
+});
+$("#jagSync").addEventListener("click", syncJagent);
+$("#jagSearch").addEventListener("input", renderJagFind);
+$("#dClose").addEventListener("click", () => $("#dlg").close());
+setInterval(() => { if (state.lastSync) $("#status").textContent = "sinkron " + Math.floor((Date.now() - state.lastSync) / 1000) + " dtk lalu"; }, 1000);
+loadLists();
+loadMintCost();
+loadJag();
+renderTables();
+renderJag();
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
