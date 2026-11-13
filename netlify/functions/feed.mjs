@@ -18,7 +18,8 @@ const UPSTREAM = {
 };
 
 export async function fetchUpstream(type) {
-  const r = await fetch(UPSTREAM[type], { headers: { "user-agent": "agentic-mint-tracker-netlify/1.3" } });
+  const bucket = Math.floor(Date.now() / 60000); // penembus cache CDN raw per menit
+  const r = await fetch(UPSTREAM[type] + "?v=" + bucket, { headers: { "user-agent": "agentic-mint-tracker-netlify/1.3" } });
   if (!r.ok) throw new Error("upstream " + r.status);
   return r.json();
 }

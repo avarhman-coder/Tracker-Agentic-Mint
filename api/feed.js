@@ -19,7 +19,8 @@ export default async (req) => {
     return Response.json({ error: "unknown type" }, { status: 400 });
   }
   try {
-    const r = await fetch(RAW + "/" + FILES[type], { headers: { "user-agent": "agentic-mint-tracker-v9-github/1.0" } });
+    const bucket = Math.floor(Date.now() / 60000); // penembus cache CDN raw per menit
+    const r = await fetch(RAW + "/" + FILES[type] + "?v=" + bucket, { headers: { "user-agent": "agentic-mint-tracker-v9-github/1.0" } });
     if (!r.ok) throw new Error("github raw " + r.status);
     const data = await r.json();
     return new Response(JSON.stringify(data), {
