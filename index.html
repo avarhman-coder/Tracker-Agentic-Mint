@@ -110,18 +110,12 @@ const jag = { wallets: new Map(), totals: null, syncedAt: null, activity: [], ac
 function storeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* penyimpanan penuh/tidak tersedia */ } }
 function storeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function loadLists() {
-  // Pulihkan daftar dari penyimpanan browser supaya membuka ulang halaman
-  // langsung menampilkan riwayat yang sudah terkumpul, tidak mulai dari nol.
-  for (const [key, map] of [["tracker_nft_v1", state.nft], ["tracker_tokens_v1", state.tokens]]) {
-    const raw = storeGet(key);
-    if (!raw) continue;
-    try { for (const r of JSON.parse(raw)) map.set(key === "tracker_nft_v1" ? `${r.tx}:${r.log_index}:${r.token_id}` : `${r.tx}:${r.token}:${r.agent}:${r.amount_raw}`, r); } catch { /* abaikan */ }
-  }
+  // Feed sekarang otoritatif dari server (ribuan baris per ambil), jadi riwayat
+  // lama di localStorage TIDAK dipakai lagi — akumulasi lama (era API koncet
+  // yang cuma memberi ±3 baris) justru membekukan tampilan. Hapus kunci lama.
+  try { localStorage.removeItem("tracker_nft_v1"); localStorage.removeItem("tracker_tokens_v1"); } catch { /* abaikan */ }
 }
-function saveLists() {
-  storeSet("tracker_nft_v1", JSON.stringify([...state.nft.values()].slice(-500)));
-  storeSet("tracker_tokens_v1", JSON.stringify([...state.tokens.values()].slice(-500)));
-}
+function saveLists() { /* feed tidak lagi disimpan di browser */ }
 function loadMintCost() {
   const raw = storeGet("tracker_mintcost_v1");
   if (!raw) return;
@@ -268,12 +262,9 @@ async function refresh() {
       getJSON("/api/feed?type=pulse"), getJSON("/api/feed?type=tokenstats"),
       getJSON("/api/feed?type=nft"), getJSON("/api/feed?type=tokens"), getJSON("/api/feed?type=contracts"),
     ]);
-    for (const row of nft) state.nft.set(`${row.tx}:${row.log_index}:${row.token_id}`, row);
-    for (const row of tokens) state.tokens.set(`${row.tx}:${row.token}:${row.agent}:${row.amount_raw}`, row);
+    state.nft = new Map(nft.slice(0, 500).map((r) => [`${r.tx}:${r.log_index}:${r.token_id}`, r]));
+    state.tokens = new Map(tokens.slice(0, 500).map((r) => [`${r.tx}:${r.token}:${r.agent}:${r.amount_raw}`, r]));
     state.contracts = contracts;
-    if (state.nft.size > 500) state.nft = new Map([...state.nft].slice(-500));
-    if (state.tokens.size > 500) state.tokens = new Map([...state.tokens].slice(-500));
-    saveLists();
     state.lastSync = Date.now();
     updatePrices();
     updateMintCosts();
