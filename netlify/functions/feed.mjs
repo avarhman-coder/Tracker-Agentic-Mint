@@ -8,7 +8,7 @@
 import { mergeHistory } from "./_history.mjs";
 
 // v9: sumber = file data/ di repo GitHub ini sendiri (diterbitkan OwnTracker).
-const RAW = "https://raw.githubusercontent.com/avarhman-coder/Tracker-Agentic-Mint/main/data";
+const RAW = "https://raw.githubusercontent.com/avarhman-coder/Tracker-Agentic-Mint/data/data";
 const UPSTREAM = {
   nft: RAW + "/nft.json",
   tokens: RAW + "/tokens.json",

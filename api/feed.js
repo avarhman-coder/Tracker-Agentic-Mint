@@ -1,9 +1,14 @@
-// Vercel Edge Function: baca data OwnTracker dari repo GitHub ini sendiri.
-// Indexer OwnTracker (di mesin Muse) menerbitkan data ke folder data/ repo
-// Tracker-Agentic-Mint tiap ±30 detik; file dibaca lewat raw.githubusercontent
-// (cache CDN GitHub ±5 menit — halaman mengakumulasi baris, jadi tetap hidup).
-// Tidak ada lagi ketergantungan ke ai.koncet.xyz.
-const RAW = "https://raw.githubusercontent.com/avarhman-coder/Tracker-Agentic-Mint/main/data";
+// Vercel Edge Function: baca data OwnTracker dari branch "data" repo GitHub ini.
+// Indexer OwnTracker menerbitkan data ke branch data tiap ±1 menit.
+//
+// Jalur utama: GitHub API dengan token (env GITHUB_TOKEN di Vercel) — respons
+// API terautentikasi TIDAK ditahan CDN, jadi selalu segar. Ini penting karena
+// raw.githubusercontent terbukti menahan salinan basi khusus file besar
+// (tokens.json membeku berjam-jam di beberapa wilayah).
+// Cadangan tanpa token: raw.githubusercontent dari branch data + penembus
+// cache per menit (bisa tertinggal beberapa menit di wilayah tertentu).
+const REPO = "avarhman-coder/Tracker-Agentic-Mint";
+const RAW = "https://raw.githubusercontent.com/" + REPO + "/data/data";
 const FILES = {
   nft: "nft.json",
   tokens: "tokens.json",
@@ -18,10 +23,23 @@ export default async (req) => {
   if (!FILES[type]) {
     return Response.json({ error: "unknown type" }, { status: 400 });
   }
+  const token = process.env.GITHUB_TOKEN;
   try {
-    const bucket = Math.floor(Date.now() / 60000); // penembus cache CDN raw per menit
-    const r = await fetch(RAW + "/" + FILES[type] + "?v=" + bucket, { headers: { "user-agent": "agentic-mint-tracker-v9-github/1.0" } });
-    if (!r.ok) throw new Error("github raw " + r.status);
+    let r;
+    if (token) {
+      r = await fetch("https://api.github.com/repos/" + REPO + "/contents/data/" + FILES[type] + "?ref=data", {
+        headers: {
+          "authorization": "Bearer " + token,
+          "accept": "application/vnd.github.raw+json",
+          "x-github-api-version": "2022-11-28",
+          "user-agent": "agentic-mint-tracker-v9-github/2.0",
+        },
+      });
+    } else {
+      const bucket = Math.floor(Date.now() / 60000);
+      r = await fetch(RAW + "/" + FILES[type] + "?v=" + bucket, { headers: { "user-agent": "agentic-mint-tracker-v9-github/2.0" } });
+    }
+    if (!r.ok) throw new Error("github " + r.status);
     const data = await r.json();
     return new Response(JSON.stringify(data), {
       headers: {
