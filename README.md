@@ -57,3 +57,5 @@ Vercel mengabaikan folder `netlify/`, Netlify mengabaikan folder
   baris tetap panjang walau dibuka dari browser/perangkat lain.
 - Di Vercel riwayat terkumpul di localStorage browser yang membuka.
   Sisanya identik.
+
+Data tracker diterbitkan OwnTracker ke branch `data` dan dibaca halaman lewat GitHub API.
