@@ -1,37 +1,35 @@
-// Vercel Edge Function: proxy + cache untuk API publik ai.koncet.xyz
-// Dipanggil halaman sebagai /api/feed?type=nft|tokens|contracts|pulse|tokenstats
-//
-// Perbedaan dari versi Netlify: tidak ada riwayat bersama di server
-// (Netlify Blobs tidak tersedia di Vercel). Halaman tetap mengakumulasi
-// baris tanpa duplikat dan menyimpannya di localStorage browser, jadi
-// daftar tetap panjang selama pemakaian dan tersimpan antar kunjungan
-// di browser yang sama.
-const UPSTREAM = {
-  nft: "https://ai.koncet.xyz/api/pulse/feed?limit=60",
-  tokens: "https://ai.koncet.xyz/api/tokens/feed?limit=80",
-  contracts: "https://ai.koncet.xyz/api/pulse/contracts?limit=20",
-  pulse: "https://ai.koncet.xyz/api/pulse",
-  tokenstats: "https://ai.koncet.xyz/api/tokens/stats",
+// Vercel Edge Function: baca data OwnTracker dari repo GitHub ini sendiri.
+// Indexer OwnTracker (di mesin Muse) menerbitkan data ke folder data/ repo
+// Tracker-Agentic-Mint tiap ±30 detik; file dibaca lewat raw.githubusercontent
+// (cache CDN GitHub ±5 menit — halaman mengakumulasi baris, jadi tetap hidup).
+// Tidak ada lagi ketergantungan ke ai.koncet.xyz.
+const RAW = "https://raw.githubusercontent.com/avarhman-coder/Tracker-Agentic-Mint/main/data";
+const FILES = {
+  nft: "nft.json",
+  tokens: "tokens.json",
+  contracts: "contracts.json",
+  pulse: "pulse.json",
+  tokenstats: "tokenstats.json",
 };
 
 export default async (req) => {
   const url = new URL(req.url);
   const type = url.searchParams.get("type") || "nft";
-  if (!UPSTREAM[type]) {
+  if (!FILES[type]) {
     return Response.json({ error: "unknown type" }, { status: 400 });
   }
   try {
-    const r = await fetch(UPSTREAM[type], { headers: { "user-agent": "agentic-mint-tracker-vercel/1.0" } });
-    if (!r.ok) throw new Error("upstream " + r.status);
+    const r = await fetch(RAW + "/" + FILES[type], { headers: { "user-agent": "agentic-mint-tracker-v9-github/1.0" } });
+    if (!r.ok) throw new Error("github raw " + r.status);
     const data = await r.json();
     return new Response(JSON.stringify(data), {
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "cache-control": "public, s-maxage=5, stale-while-revalidate=10",
+        "cache-control": "public, s-maxage=30, stale-while-revalidate=60",
       },
     });
   } catch (e) {
-    return Response.json({ error: "upstream fetch failed", detail: String(e) }, { status: 502 });
+    return Response.json({ error: "github data fetch failed", detail: String(e) }, { status: 502 });
   }
 };
 

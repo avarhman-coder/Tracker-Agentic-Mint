@@ -1,4 +1,4 @@
-// Netlify Function: proxy + cache untuk API publik ai.koncet.xyz
+// Netlify Function: baca data OwnTracker dari folder data/ repo GitHub ini sendiri
 // Dipanggil halaman sebagai /api/feed?type=nft|tokens|contracts|pulse|tokenstats
 //
 // API sumber hanya memberi beberapa baris terbaru per panggilan (tanpa
@@ -7,12 +7,14 @@
 // baru dibuka langsung menerima riwayat panjang, bukan cuma 3 baris.
 import { mergeHistory } from "./_history.mjs";
 
+// v9: sumber = file data/ di repo GitHub ini sendiri (diterbitkan OwnTracker).
+const RAW = "https://raw.githubusercontent.com/avarhman-coder/Tracker-Agentic-Mint/main/data";
 const UPSTREAM = {
-  nft: "https://ai.koncet.xyz/api/pulse/feed?limit=60",
-  tokens: "https://ai.koncet.xyz/api/tokens/feed?limit=80",
-  contracts: "https://ai.koncet.xyz/api/pulse/contracts?limit=20",
-  pulse: "https://ai.koncet.xyz/api/pulse",
-  tokenstats: "https://ai.koncet.xyz/api/tokens/stats",
+  nft: RAW + "/nft.json",
+  tokens: RAW + "/tokens.json",
+  contracts: RAW + "/contracts.json",
+  pulse: RAW + "/pulse.json",
+  tokenstats: RAW + "/tokenstats.json",
 };
 
 export async function fetchUpstream(type) {

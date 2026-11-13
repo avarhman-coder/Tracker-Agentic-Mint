@@ -1,4 +1,4 @@
-# Agentic Mint Tracker — paket universal (v7)
+# Agentic Mint Tracker — paket universal (v9-github)
 
 Build v7-universal — 10 November 2026. SATU paket, satu repo GitHub,
 bisa jalan di hampir semua platform hosting modern tanpa mengubah isi:
