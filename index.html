@@ -216,7 +216,7 @@ const short = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "—";
 const scan = (kind, v) => `https://bscscan.com/${kind}/${v}`;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-async function getJSON(u) { const r = await fetch(u); if (!r.ok) throw new Error(r.status); return r.json(); }
+async function getJSON(u) { const r = await fetch(u + (u.includes("?") ? "&" : "?") + "_=" + Date.now(), { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); }
 
 let costBusy = false;
 async function updateMintCosts() {

@@ -41,8 +41,8 @@ export default async (req) => {
         "content-type": "application/json; charset=utf-8",
         // Cache tepi Netlify: polling 5 detik dari banyak tab berbagi satu
         // panggilan fungsi + satu ambilan ke sumber selama 5 detik.
-        "Netlify-CDN-Cache-Control": "public, max-age=5, stale-while-revalidate=10",
-        "Cache-Control": "public, max-age=5",
+        "Netlify-CDN-Cache-Control": "no-store",
+        "Cache-Control": "no-store",
       },
     });
   } catch (e) {

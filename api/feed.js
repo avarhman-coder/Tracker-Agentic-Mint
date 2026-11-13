@@ -26,7 +26,7 @@ export default async (req) => {
     return new Response(JSON.stringify(data), {
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "cache-control": "public, s-maxage=30, stale-while-revalidate=60",
+        "cache-control": "no-store",
       },
     });
   } catch (e) {
