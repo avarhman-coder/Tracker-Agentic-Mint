@@ -9,6 +9,7 @@
 // cache per menit (bisa tertinggal beberapa menit di wilayah tertentu).
 const REPO = "avarhman-coder/Tracker-Agentic-Mint";
 const RAW = "https://raw.githubusercontent.com/" + REPO + "/data/data";
+const MEMO = {};
 const FILES = {
   nft: "nft.json",
   tokens: "tokens.json",
@@ -24,6 +25,15 @@ export default async (req) => {
     return Response.json({ error: "unknown type" }, { status: 400 });
   }
   const token = process.env.GITHUB_TOKEN;
+  // Memo 8 detik per isolate: memangkas panggilan API GitHub dari polling
+  // halaman (5 dtk) supaya kuota token tidak habis dan tidak kena rate-limit.
+  const now = Date.now();
+  const hit = MEMO[type];
+  if (hit && now - hit.at < 8000) {
+    return new Response(hit.body, {
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
   try {
     let r;
     if (token) {
@@ -41,7 +51,9 @@ export default async (req) => {
     }
     if (!r.ok) throw new Error("github " + r.status);
     const data = await r.json();
-    return new Response(JSON.stringify(data), {
+    const body = JSON.stringify(data);
+    MEMO[type] = { at: Date.now(), body };
+    return new Response(body, {
       headers: {
         "content-type": "application/json; charset=utf-8",
         "cache-control": "no-store",
