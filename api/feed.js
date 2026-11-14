@@ -33,7 +33,7 @@ function jsonResponse(body) {
 
 async function fromVPS(type) {
   const r = await fetch(VPS + VPS_PATHS[type], {
-    headers: { "user-agent": "agentic-mint-tracker-v10-vps/1.0" },
+    headers: { "user-agent": "agentic-mint-tracker-v10-vps/1.1" },
     signal: AbortSignal.timeout(3000),
   });
   if (!r.ok) throw new Error("vps " + r.status);
@@ -48,14 +48,14 @@ async function fromGitHub(type, token) {
         "authorization": "Bearer " + token,
         "accept": "application/vnd.github.raw+json",
         "x-github-api-version": "2022-11-28",
-        "user-agent": "agentic-mint-tracker-v10-vps/1.0",
+        "user-agent": "agentic-mint-tracker-v10-vps/1.1",
       },
       signal: AbortSignal.timeout(5000),
     });
   } else {
     const bucket = Math.floor(Date.now() / 60000);
     r = await fetch(RAW + "/" + FILES[type] + "?v=" + bucket, {
-      headers: { "user-agent": "agentic-mint-tracker-v10-vps/1.0" },
+      headers: { "user-agent": "agentic-mint-tracker-v10-vps/1.1" },
       signal: AbortSignal.timeout(5000),
     });
   }
