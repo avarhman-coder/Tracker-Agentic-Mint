@@ -3,44 +3,144 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Agentic Mint Tracker — build v9-github (13 Nov 2026) — data OwnTracker diterbitkan ke repo ini (folder data/), tanpa ai.koncet.xyz -->
+<!-- Agentic Mint Tracker — v10 (14 Nov 2026): data OwnTracker dari VPS PakaiCloud (GitHub cadangan) + layout modern -->
 <title>Agentic Mint Tracker — Radar Mint Agent BSC</title>
+<meta name="description" content="Radar real-time mint NFT & token oleh wallet Agent ID di BNB Chain — harga mint, suplai, dan aktivitas agent, langsung dari on-chain.">
+<meta name="theme-color" content="#080b0a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛰️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root{ --bg:#0b0f0c; --panel:#121813; --line:#223026; --txt:#e6f2e6; --mut:#8fae94; --acc:#37e08b; --acc2:#ffd34d; }
+  :root{
+    --bg:#080b0a; --panel:#0e1512; --panel2:#131c17; --line:#1e2b23; --line2:#2c4034;
+    --txt:#e9f6ed; --mut:#93ac9a; --acc:#34e58c; --acc2:#ffd34d; --ink:#04170c;
+    --pad:max(16px, calc((100vw - 1340px) / 2));
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
   *{ box-sizing:border-box; }
-  body{ margin:0; background:var(--bg); color:var(--txt); font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
-  header{ padding:14px 16px 8px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px 16px; align-items:baseline; }
-  h1{ font-size:18px; margin:0; letter-spacing:.5px; }
-  .live{ color:var(--acc); font-size:12px; }
-  .live b{ animation:pulse 1.2s infinite; display:inline-block; }
-  @keyframes pulse{ 50%{ opacity:.25; } }
-  #status{ color:var(--mut); font-size:12px; }
-  button{ background:var(--panel); color:var(--txt); border:1px solid var(--line); padding:6px 12px; cursor:pointer; font:inherit; font-size:12px; }
-  button:hover{ border-color:var(--acc); }
-  .stats{ display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; }
-  .stat{ background:var(--panel); border:1px solid var(--line); padding:8px 12px; min-width:130px; }
-  .stat .k{ color:var(--mut); font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
-  .stat .v{ font-size:16px; margin-top:2px; }
-  nav{ display:flex; gap:8px; padding:0 16px 12px; }
-  nav button.active{ background:var(--acc); color:#06240f; font-weight:bold; }
-  main{ padding:0 16px 24px; overflow-x:auto; }
-  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  th,td{ text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
-  th{ color:var(--mut); font-weight:normal; text-transform:uppercase; font-size:10.5px; }
+  [hidden]{ display:none !important; }
+  html{ scrollbar-color:var(--line2) var(--bg); }
+  body{
+    margin:0; color:var(--txt); min-height:100vh;
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:14px; line-height:1.45; font-variant-numeric:tabular-nums;
+    background:
+      radial-gradient(900px 480px at 85% -10%, rgba(52,229,140,.10), transparent 60%),
+      radial-gradient(700px 420px at -10% 0%, rgba(255,211,77,.05), transparent 55%),
+      var(--bg);
+    background-attachment:fixed;
+  }
+  ::selection{ background:rgba(52,229,140,.35); }
+
+  header{
+    position:sticky; top:0; z-index:20;
+    display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center;
+    padding:14px var(--pad) 12px;
+    background:rgba(8,11,10,.85); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line);
+  }
+  h1{ font-size:19px; font-weight:800; margin:0; letter-spacing:.3px; }
+  .live{
+    display:inline-flex; align-items:center; gap:7px;
+    color:var(--acc); font-size:11.5px; font-weight:600; letter-spacing:.4px;
+    background:rgba(52,229,140,.09); border:1px solid rgba(52,229,140,.30);
+    padding:4px 11px; border-radius:999px;
+  }
+  .live b{ animation:pulse 1.4s infinite; display:inline-block; font-size:9px; }
+  @keyframes pulse{ 50%{ opacity:.2; } }
+  #status{ color:var(--mut); font-size:12.5px; margin-left:auto; }
+  button{
+    background:var(--panel2); color:var(--txt); border:1px solid var(--line);
+    padding:7px 14px; border-radius:10px; cursor:pointer; font:inherit; font-size:12.5px; font-weight:600;
+    transition:border-color .15s, background .15s, transform .15s;
+  }
+  button:hover{ border-color:var(--acc); transform:translateY(-1px); }
+  button:active{ transform:translateY(0); }
+  button:focus-visible, a:focus-visible, input:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; }
+  #refreshBtn{ border-color:rgba(52,229,140,.45); color:var(--acc); background:rgba(52,229,140,.07); }
+
+  .stats{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(165px, 1fr)); gap:10px;
+    padding:16px var(--pad) 4px;
+  }
+  .stat{
+    background:linear-gradient(180deg, var(--panel2), var(--panel));
+    border:1px solid var(--line); border-radius:14px; padding:12px 14px;
+    box-shadow:var(--shadow);
+  }
+  .stat .k{ color:var(--mut); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; }
+  .stat .v{ font-size:21px; font-weight:700; margin-top:3px; }
+
+  nav{ display:flex; flex-wrap:wrap; gap:8px; padding:14px var(--pad) 6px; }
+  nav button{ border-radius:999px; padding:8px 16px; background:var(--panel); }
+  nav button span{ opacity:.75; font-weight:700; }
+  nav button.active{
+    background:linear-gradient(135deg, #3ce68f, #17b978); color:var(--ink); border-color:transparent;
+    box-shadow:0 4px 16px rgba(52,229,140,.30);
+  }
+
+  main{ padding:10px var(--pad) 26px; overflow-x:auto; }
+  main::-webkit-scrollbar{ height:8px; }
+  main::-webkit-scrollbar-thumb{ background:var(--line2); border-radius:99px; }
+  table{
+    width:100%; border-collapse:separate; border-spacing:0; font-size:13px;
+    background:linear-gradient(180deg, var(--panel2), var(--panel));
+    border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow);
+  }
+  th,td{ text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  th{
+    color:var(--mut); font-weight:600; text-transform:uppercase; font-size:10.5px; letter-spacing:.8px;
+    background:rgba(255,255,255,.02);
+  }
+  tbody tr{ transition:background .12s; }
+  tbody tr:nth-child(even){ background:rgba(255,255,255,.014); }
+  tbody tr:hover{ background:rgba(52,229,140,.055); }
+  td:first-child{ color:var(--mut); }
   a{ color:var(--acc); text-decoration:none; }
   a:hover{ text-decoration:underline; }
-  .nm{ color:var(--acc2); cursor:pointer; background:none; border:none; padding:0; font:inherit; text-align:left; }
-  .nm:hover{ text-decoration:underline; }
-  .bar{ background:#1c2a1f; height:8px; min-width:90px; position:relative; }
-  .bar i{ position:absolute; inset:0 auto 0 0; background:var(--acc); }
-  .free{ color:var(--acc); }
-  dialog{ background:var(--panel); color:var(--txt); border:1px solid var(--acc); max-width:520px; width:92vw; }
-  dialog::backdrop{ background:rgba(0,0,0,.7); }
-  dialog h2{ margin:0 0 4px; font-size:16px; }
-  dialog .row{ margin:8px 0; font-size:13px; }
-  dialog .k{ color:var(--mut); font-size:10.5px; text-transform:uppercase; }
-  .desc{ white-space:pre-wrap; line-height:1.5; }
-  footer{ padding:0 16px 20px; color:var(--mut); font-size:11px; line-height:1.6; }
+  td > a{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; }
+  .nm{
+    color:var(--acc2); cursor:pointer; background:none; border:none; padding:0; font:inherit; font-weight:600;
+    text-align:left; border-radius:6px;
+  }
+  .nm:hover{ text-decoration:underline; transform:none; }
+  .bar{
+    display:inline-block; vertical-align:middle; width:118px; height:8px; margin-right:8px;
+    background:#1a2620; border-radius:99px; position:relative; overflow:hidden;
+  }
+  .bar i{ position:absolute; inset:0 auto 0 0; background:linear-gradient(90deg, #17b978, var(--acc)); border-radius:99px; }
+  .free{
+    color:var(--acc); background:rgba(52,229,140,.10); border:1px solid rgba(52,229,140,.35);
+    padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.3px;
+  }
+  input{ border-radius:10px; }
+  input::placeholder{ color:var(--mut); }
+
+  dialog{
+    background:linear-gradient(180deg, var(--panel2), var(--panel)); color:var(--txt);
+    border:1px solid var(--line2); border-radius:18px; padding:22px;
+    max-width:560px; width:94vw; box-shadow:0 24px 60px rgba(0,0,0,.55);
+  }
+  dialog::backdrop{ background:rgba(3,6,4,.72); backdrop-filter:blur(3px); }
+  dialog h2{ margin:0 0 6px; font-size:18px; font-weight:700; word-break:break-word; }
+  dialog .row{ margin:12px 0; font-size:13.5px; line-height:1.55; }
+  dialog .k{ color:var(--mut); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; }
+  dialog a{ word-break:break-all; }
+  #dImg img{ border-radius:12px; }
+  #dClose{ width:100%; margin-top:6px; padding:10px; border-radius:12px; }
+  .desc{ white-space:pre-wrap; line-height:1.55; margin-top:4px; }
+
+  footer{
+    padding:4px var(--pad) 26px; color:var(--mut); font-size:11.5px; line-height:1.6;
+    max-width:1340px; margin:0 auto;
+  }
+  @media (max-width:640px){
+    h1{ font-size:16.5px; }
+    #status{ margin-left:0; width:100%; order:5; }
+    .stat .v{ font-size:18px; }
+    th,td{ padding:8px 9px; }
+  }
 </style>
 </head>
 <body>
@@ -90,6 +190,8 @@
     </table>
   </div>
 </main>
+
+<footer>🛰️ <b>Agentic Mint Tracker</b> — data on-chain BNB Smart Chain dari registry Agent ID &amp; event mint, diperbarui otomatis. Klik nama proyek untuk detail, situs resmi, dan media sosialnya.</footer>
 
 <dialog id="dlg">
   <h2 id="dName">Detail</h2>
