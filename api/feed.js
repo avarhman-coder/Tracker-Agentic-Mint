@@ -8,7 +8,7 @@
 // penembus cache per menit.
 const REPO = "avarhman-coder/Tracker-Agentic-Mint";
 const RAW = "https://raw.githubusercontent.com/" + REPO + "/data/data";
-const VPS = "http://31.58.103.91:8787";
+const VPS = "https://api.agentmint.live";
 const MEMO = {};
 const FILES = {
   nft: "nft.json",
@@ -33,7 +33,7 @@ function jsonResponse(body) {
 
 async function fromVPS(type) {
   const r = await fetch(VPS + VPS_PATHS[type], {
-    headers: { "user-agent": "agentic-mint-tracker-v10-vps/1.1" },
+    headers: { "user-agent": "agentic-mint-tracker-v10-vps/1.2" },
     signal: AbortSignal.timeout(3000),
   });
   if (!r.ok) throw new Error("vps " + r.status);
@@ -48,14 +48,14 @@ async function fromGitHub(type, token) {
         "authorization": "Bearer " + token,
         "accept": "application/vnd.github.raw+json",
         "x-github-api-version": "2022-11-28",
-        "user-agent": "agentic-mint-tracker-v10-vps/1.1",
+        "user-agent": "agentic-mint-tracker-v10-vps/1.2",
       },
       signal: AbortSignal.timeout(5000),
     });
   } else {
     const bucket = Math.floor(Date.now() / 60000);
     r = await fetch(RAW + "/" + FILES[type] + "?v=" + bucket, {
-      headers: { "user-agent": "agentic-mint-tracker-v10-vps/1.1" },
+      headers: { "user-agent": "agentic-mint-tracker-v10-vps/1.2" },
       signal: AbortSignal.timeout(5000),
     });
   }
