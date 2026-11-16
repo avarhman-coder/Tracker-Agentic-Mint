@@ -158,6 +158,7 @@
   <button type="button" data-tab="tokens">TOKEN · <span id="cTok">0</span></button>
   <button type="button" data-tab="contracts">KONTRAK · <span id="cCon">0</span></button>
   <button type="button" data-tab="jagent">JAGENT · <span id="cJag">0</span></button>
+  <button type="button" data-tab="holders">HOLDER · <span id="cHol">0</span></button>
 </nav>
 
 <main>
@@ -188,6 +189,30 @@
       <thead><tr><th>Waktu</th><th>Wallet JAGENT</th><th>Jenis</th><th>Proyek / Token</th><th>Harga / Jumlah</th><th>Tx</th></tr></thead>
       <tbody></tbody>
     </table>
+  </div>
+  <div id="paneHol" hidden>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+      <input id="holAddr" type="text" spellcheck="false"
+        value="0x81c3Ab2C7EE773aF2AC823b8CEF3c430ef11F039"
+        style="background:var(--panel);color:var(--txt);border:1px solid var(--line);padding:6px 10px;font:inherit;font-size:12px;min-width:340px">
+      <button type="button" id="holLoad">MUAT</button>
+      <input id="holSearch" type="text" placeholder="Cari alamat wallet…"
+        style="background:var(--panel);color:var(--txt);border:1px solid var(--line);padding:6px 10px;font:inherit;font-size:12px;min-width:200px">
+    </div>
+    <p id="holSummary" style="color:var(--mut);font-size:12px;margin:0 0 10px">Snapshot holder belum dimuat.</p>
+    <h3 style="margin:14px 0 6px;font-size:13px">Holder saat ini</h3>
+    <table id="tblHol">
+      <thead><tr><th>#</th><th>Wallet</th><th>Saldo</th><th>% Suplai</th><th>Jenis</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" id="holMore" hidden style="margin:10px 0">MUAT 100 BERIKUTNYA</button>
+    <h3 style="margin:18px 0 6px;font-size:13px">Mint awal sebelum pool — sudah tidak jadi holder</h3>
+    <p id="holEarlySummary" style="color:var(--mut);font-size:12px;margin:0 0 10px">—</p>
+    <table id="tblHolEarly">
+      <thead><tr><th>#</th><th>Wallet</th><th>Terima awal (sebelum pool)</th><th>Blok terima pertama</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" id="holEarlyMore" hidden style="margin:10px 0">MUAT 100 BERIKUTNYA</button>
   </div>
 </main>
 
@@ -451,11 +476,68 @@ async function openDetail(address, fallbackName, tokenId) {
   }
 }
 
+const hol = { data: null, shown: 0, earlyShown: 0, token: "" };
+const fmtBal = (n) => Number(n).toLocaleString("id-ID", { maximumFractionDigits: 2 });
+const fmtPct = (p) => (p >= 0.01 ? p.toFixed(2) : p.toFixed(4)) + "%";
+
+function holFiltered() {
+  const q = ($("#holSearch").value || "").trim().toLowerCase();
+  const all = hol.data ? hol.data.holders : [];
+  return q ? all.filter((h) => h.a.includes(q)) : all;
+}
+function holEarlyFiltered() {
+  const q = ($("#holSearch").value || "").trim().toLowerCase();
+  const all = hol.data ? hol.data.early_exited : [];
+  return q ? all.filter((h) => h.a.includes(q)) : all;
+}
+function renderHol() {
+  if (!hol.data) return;
+  const rows = holFiltered();
+  const page = rows.slice(0, hol.shown);
+  $("#tblHol tbody").innerHTML = page.map((h) => `<tr>
+    <td>${h.r}</td>
+    <td><a href="${scan("address", h.a)}" target="_blank" rel="noopener">${short(h.a)}</a></td>
+    <td>${fmtBal(h.b)}</td><td>${fmtPct(h.p)}</td>
+    <td>${h.c === true ? "Kontrak" : h.c === false ? "Wallet" : "—"}</td></tr>`).join("") ||
+    `<tr><td colspan="5" style="color:var(--mut)">Tidak ada holder yang cocok.</td></tr>`;
+  $("#holMore").hidden = rows.length <= hol.shown;
+  const erows = holEarlyFiltered();
+  const epage = erows.slice(0, hol.earlyShown);
+  $("#tblHolEarly tbody").innerHTML = epage.map((h) => `<tr>
+    <td>${h.r}</td>
+    <td><a href="${scan("address", h.a)}" target="_blank" rel="noopener">${short(h.a)}</a></td>
+    <td>${fmtBal(h.b)}</td><td>${fmtN(h.f)}</td></tr>`).join("") ||
+    `<tr><td colspan="4" style="color:var(--mut)">Tidak ada yang cocok.</td></tr>`;
+  $("#holEarlyMore").hidden = erows.length <= hol.earlyShown;
+}
+async function loadHolders() {
+  const addr = ($("#holAddr").value || "").trim().toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(addr)) { $("#holSummary").textContent = "Alamat token tidak valid."; return; }
+  const btn = $("#holLoad"); btn.textContent = "MEMUAT…"; btn.disabled = true;
+  try {
+    const j = await getJSON("/api/holders?token=" + addr);
+    j.holders.forEach((h, i) => { h.r = i + 1; });
+    j.early_exited.forEach((h, i) => { h.r = i + 1; });
+    hol.data = j; hol.token = addr; hol.shown = 100; hol.earlyShown = 100;
+    const when = new Date(j.snapshot_at * 1000).toLocaleString("id-ID");
+    $("#holSummary").textContent = `${j.name} (${j.symbol}) · ${fmtN(j.holders_count)} holder · snapshot blok #${fmtN(j.head_block)} (${when}) · total suplai ${fmtBal(j.total_supply)} · terbakar ${fmtBal(j.burned_dead)} ke alamat dead · ${fmtN(j.transfers_counted)} transfer terpindai dari blok penciptaan #${fmtN(j.creation_block)}`;
+    $("#holEarlySummary").textContent = `${fmtN(j.early_recipients)} alamat menerima dari kontrak sale sebelum pool dibuka (blok #${fmtN(j.pool_open_block)}); ${fmtN(j.early_still_holding)} masih jadi holder, ${fmtN(j.early_exited_count)} sudah keluar semua.`;
+    $("#cHol").textContent = j.holders_count;
+    renderHol();
+  } catch (e) {
+    $("#holSummary").textContent = "Gagal memuat snapshot (" + e.message + ") — token ini mungkin belum pernah dipindai holder-nya.";
+    $("#holEarlySummary").textContent = "—";
+  }
+  btn.textContent = "MUAT"; btn.disabled = false;
+}
+
 document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
   b.classList.add("active"); state.tab = b.dataset.tab;
   $("#tblNft").hidden = state.tab !== "nft"; $("#tblTok").hidden = state.tab !== "tokens"; $("#tblCon").hidden = state.tab !== "contracts";
   $("#paneJag").hidden = state.tab !== "jagent";
+  $("#paneHol").hidden = state.tab !== "holders";
+  if (state.tab === "holders" && !hol.data) loadHolders();
 }));
 $("#refreshBtn").addEventListener("click", refresh);
 document.addEventListener("click", (ev) => {
@@ -464,6 +546,11 @@ document.addEventListener("click", (ev) => {
 });
 $("#jagSync").addEventListener("click", syncJagent);
 $("#jagSearch").addEventListener("input", renderJagFind);
+$("#holLoad").addEventListener("click", loadHolders);
+$("#holAddr").addEventListener("keydown", (e) => { if (e.key === "Enter") loadHolders(); });
+$("#holSearch").addEventListener("input", () => { hol.shown = 100; hol.earlyShown = 100; renderHol(); });
+$("#holMore").addEventListener("click", () => { hol.shown += 100; renderHol(); });
+$("#holEarlyMore").addEventListener("click", () => { hol.earlyShown += 100; renderHol(); });
 $("#dClose").addEventListener("click", () => $("#dlg").close());
 setInterval(() => { if (state.lastSync) $("#status").textContent = "sinkron " + Math.floor((Date.now() - state.lastSync) / 1000) + " dtk lalu"; }, 1000);
 loadLists();
