@@ -1,4 +1,5 @@
 // Vercel Edge Function: data OwnTracker untuk Agentic Mint Tracker.
+// (termasuk type "projects": agregasi per proyek + mint berbayar)
 //
 // Jalur utama: indexer OwnTracker di VPS PakaiCloud (tracker-01) lewat HTTP
 // langsung — data berumur detik, tanpa perantara commit GitHub.
