@@ -40,6 +40,8 @@ async function fromGitHub(addr, token) {
   return await r.text();
 }
 
+export const config = { runtime: "edge" };
+
 export default async function handler(req) {
   const url = new URL(req.url);
   const addr = (url.searchParams.get("token") || "").toLowerCase();
