@@ -213,6 +213,12 @@
       <tbody></tbody>
     </table>
     <button type="button" id="holEarlyMore" hidden style="margin:10px 0">MUAT 100 BERIKUTNYA</button>
+    <h3 style="margin:18px 0 6px;font-size:13px">Pantauan langsung — holder StarsAI baru saja mint</h3>
+    <p id="holWatchSummary" style="color:var(--mut);font-size:12px;margin:0 0 10px">Semua 4.370 alamat holder StarsAI dipantau indexer secara langsung: setiap mint NFT / token baru oleh alamat-alamat ini muncul di sini.</p>
+    <table id="tblHolWatch">
+      <thead><tr><th>Waktu</th><th>Jenis</th><th>Proyek / Token</th><th>Jumlah / ID</th><th>Harga</th><th>Wallet holder</th><th>Tx</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 </main>
 
@@ -393,6 +399,7 @@ async function refresh() {
     state.tokens = new Map(tokens.slice(0, 500).map((r) => [`${r.tx}:${r.token}:${r.agent}:${r.amount_raw}`, r]));
     state.contracts = contracts;
     state.lastSync = Date.now();
+    if (state.tab === "holders") loadWatchFeed();
     updatePrices();
     updateMintCosts();
     matchJagActivity();
@@ -531,6 +538,25 @@ async function loadHolders() {
   btn.textContent = "MUAT"; btn.disabled = false;
 }
 
+let watchBusy = false;
+async function loadWatchFeed() {
+  if (watchBusy) return;
+  watchBusy = true;
+  try {
+    const rows = await getJSON("/api/feed?type=watch");
+    $("#tblHolWatch tbody").innerHTML = rows.map((r) => `<tr>
+      <td>${fmtT(r.ts)}</td>
+      <td>${r.kind === "nft" ? "NFT" : "Token"}</td>
+      <td>${nameBtn(r.name || r.symbol || "?", r.contract)}</td>
+      <td>${r.kind === "nft" ? "#" + esc(r.token_id) : fmtBal(r.amount_ui || 0) + " " + esc(r.symbol || "")}</td>
+      <td>${r.price_bnb > 0 ? r.price_bnb + " BNB" : '<span class="free">GRATIS</span>'}</td>
+      <td><a href="${scan("address", r.wallet)}" target="_blank" rel="noopener">${short(r.wallet)}</a> <span style="color:var(--mut)">(${esc(r.watch || "")})</span></td>
+      <td><a href="${scan("tx", r.tx)}" target="_blank" rel="noopener">${short(r.tx)}</a></td></tr>`).join("") ||
+      `<tr><td colspan="7" style="color:var(--mut)">Belum ada mint baru dari holder StarsAI sejak pantauan aktif. Tabel ini terisi otomatis begitu salah satu dari 4.370 alamat itu mint NFT / token apa pun.</td></tr>`;
+  } catch { /* gagal -> dicoba lagi siklus berikut */ }
+  watchBusy = false;
+}
+
 document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
   b.classList.add("active"); state.tab = b.dataset.tab;
@@ -538,6 +564,7 @@ document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click
   $("#paneJag").hidden = state.tab !== "jagent";
   $("#paneHol").hidden = state.tab !== "holders";
   if (state.tab === "holders" && !hol.data) loadHolders();
+  if (state.tab === "holders") loadWatchFeed();
 }));
 $("#refreshBtn").addEventListener("click", refresh);
 document.addEventListener("click", (ev) => {
