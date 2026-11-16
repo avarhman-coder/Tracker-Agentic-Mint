@@ -587,7 +587,7 @@ async function loadWatchFeed() {
       <td>${r.kind === "nft" ? "NFT" : "Token"}</td>
       <td>${nameBtn(r.name || r.symbol || "?", r.contract)}</td>
       <td>${r.kind === "nft" ? "#" + esc(r.token_id) : fmtBal(r.amount_ui || 0) + " " + esc(r.symbol || "")}</td>
-      <td>${r.price_bnb > 0 ? r.price_bnb + " BNB" : '<span class="free">GRATIS</span>'}</td>
+      <td>${r.price_bnb > 0 ? r.price_bnb + " BNB" : (r.cost_token_amount > 0 ? fmtN(r.cost_token_amount) + " " + esc(r.cost_token_symbol || "") : '<span class="free">GRATIS</span>')}</td>
       <td><a href="${scan("address", r.wallet)}" target="_blank" rel="noopener">${short(r.wallet)}</a> <span style="color:var(--mut)">(${esc(r.watch || "")})</span></td>
       <td><a href="${scan("tx", r.tx)}" target="_blank" rel="noopener">${short(r.tx)}</a></td></tr>`).join("") ||
       `<tr><td colspan="7" style="color:var(--mut)">Belum ada mint baru dari holder StarsAI sejak pantauan aktif. Tabel ini terisi otomatis begitu salah satu dari 4.370 alamat itu mint NFT / token apa pun.</td></tr>`;
