@@ -156,7 +156,6 @@
 <nav>
   <button type="button" data-tab="nft" class="active">MINT NFT · <span id="cNft">0</span></button>
   <button type="button" data-tab="tokens">TOKEN · <span id="cTok">0</span></button>
-  <button type="button" data-tab="projects">PROYEK · <span id="cPrj">0</span></button>
   <button type="button" data-tab="contracts">KONTRAK · <span id="cCon">0</span></button>
   <button type="button" data-tab="jagent">JAGENT · <span id="cJag">0</span></button>
   <button type="button" data-tab="holders">HOLDER · <span id="cHol">0</span></button>
@@ -172,18 +171,6 @@
     <thead><tr><th>Waktu</th><th>Token</th><th>Harga Mint</th><th>Harga Pasar</th><th>Jumlah</th><th>Arah</th><th>Agent</th><th>Tx</th></tr></thead>
     <tbody></tbody>
   </table>
-  <div id="panePrj" hidden>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
-      <label style="font-size:12px;display:flex;gap:6px;align-items:center;cursor:pointer">
-        <input type="checkbox" id="prjPaidOnly"> Hanya mint berbayar
-      </label>
-      <span id="prjSummary" style="color:var(--mut);font-size:12px">Agregasi per proyek dari mint agent — mint berbayar (share/token sebelum pool) tetap terlihat di sini walau feed mentah dibanjiri mint gratis.</span>
-    </div>
-    <table id="tblPrj">
-      <thead><tr><th>Proyek / Token</th><th>Jenis</th><th>Total mint</th><th>Berbayar</th><th>Total dibayar</th><th>Agent unik</th><th>Mint terakhir</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
   <table id="tblCon" hidden>
     <thead><tr><th>Kontrak</th><th>Harga</th><th>Progres suplai</th><th>Sisa</th><th>% Agent</th><th>Mint terakhir</th></tr></thead>
     <tbody></tbody>
@@ -255,6 +242,12 @@
       <tbody></tbody>
     </table>
     <button type="button" id="aicMore" hidden style="margin:10px 0">MUAT 100 BERIKUTNYA</button>
+    <h3 style="margin:18px 0 6px;font-size:13px">Pantauan langsung — minter AIC mint lagi</h3>
+    <p id="aicWatchSummary" style="color:var(--mut);font-size:12px;margin:0 0 10px">Ke-938 alamat minter AIC dipantau indexer secara langsung: setiap mint token / NFT baru oleh alamat-alamat ini muncul di sini, up to date.</p>
+    <table id="tblAicWatch">
+      <thead><tr><th>Waktu</th><th>Jenis</th><th>Proyek / Token</th><th>Jumlah / ID</th><th>Harga</th><th>Wallet minter</th><th>Tx</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 </main>
 
@@ -427,21 +420,20 @@ async function updatePrices() {
 
 async function refresh() {
   try {
-    const [pulse, tstats, nft, tokens, contracts, projects] = await Promise.all([
+    const [pulse, tstats, nft, tokens, contracts] = await Promise.all([
       getJSON("/api/feed?type=pulse"), getJSON("/api/feed?type=tokenstats"),
       getJSON("/api/feed?type=nft"), getJSON("/api/feed?type=tokens"), getJSON("/api/feed?type=contracts"),
-      getJSON("/api/feed?type=projects").catch(() => []),
     ]);
     state.nft = new Map(nft.slice(0, 500).map((r) => [`${r.tx}:${r.log_index}:${r.token_id}`, r]));
     state.tokens = new Map(tokens.slice(0, 500).map((r) => [`${r.tx}:${r.token}:${r.agent}:${r.amount_raw}`, r]));
     state.contracts = contracts;
-    state.projects = projects;
     state.lastSync = Date.now();
     if (state.tab === "holders") loadWatchFeed();
+    if (state.tab === "aic") loadAicWatch();
     updatePrices();
     updateMintCosts();
     matchJagActivity();
-    renderStats(pulse, tstats); renderTables(); renderProjects(); renderJag();
+    renderStats(pulse, tstats); renderTables(); renderJag();
     $("#status").textContent = "sinkron " + Math.floor((Date.now() - state.lastSync) / 1000) + " dtk lalu · blok #" + fmtN(pulse.last_block);
   } catch (e) {
     $("#status").textContent = "gagal ambil data (" + e.message + ") — mencoba lagi otomatis";
@@ -486,29 +478,6 @@ function renderTables() {
     <td>${fmtN(r.left)}</td><td>${r.pct ?? "—"}%</td><td>${fmtT(r.last_ts)}</td></tr>`;
   }).join("");
   $("#cNft").textContent = state.nft.size; $("#cTok").textContent = state.tokens.size; $("#cCon").textContent = state.contracts.length;
-}
-
-function renderProjects() {
-  const paidOnly = $("#prjPaidOnly") && $("#prjPaidOnly").checked;
-  const all = state.projects || [];
-  const rows = paidOnly ? all.filter((p) => p.paid_mints > 0) : all;
-  $("#tblPrj tbody").innerHTML = rows.map((p) => {
-    const paid = [];
-    if (p.cost_bnb > 0) paid.push(fmtN(p.cost_bnb) + " BNB");
-    if (p.cost_usd > 0) paid.push("$" + fmtN(p.cost_usd));
-    return `<tr>
-    <td>${nameBtn(p.symbol || p.name, p.token)}</td>
-    <td>${p.kind === "nft" ? "NFT" : "Token"}</td>
-    <td>${fmtN(p.total_mints)}</td>
-    <td>${p.paid_mints > 0 ? fmtN(p.paid_mints) : '<span class="free">0</span>'}</td>
-    <td>${paid.length ? paid.join(" + ") : '<span class="free">GRATIS</span>'}</td>
-    <td>${fmtN(p.agents)}</td>
-    <td>${fmtT(p.last_ts)}</td></tr>`;
-  }).join("") || `<tr><td colspan="7" style="color:var(--mut)">Belum ada data proyek — agregasi berjalan sejak fitur ini aktif dan terisi otomatis dari mint agent yang masuk.</td></tr>`;
-  $("#cPrj").textContent = all.length;
-  const paidCount = all.filter((p) => p.paid_mints > 0).length;
-  const since = all.length ? Math.min(...all.map((p) => p.first_ts)) : null;
-  $("#prjSummary").textContent = `${fmtN(all.length)} proyek terpantau${since ? " sejak " + fmtT(since) : ""} · ${fmtN(paidCount)} proyek punya mint berbayar · mint berbayar (share/token sebelum pool) tetap terlihat di sini walau feed mentah dibanjiri mint gratis.`;
 }
 
 async function openDetail(address, fallbackName, tokenId) {
@@ -649,6 +618,29 @@ async function loadAic() {
     $("#aicEarlySummary").textContent = "—";
   }
   btn.textContent = "MUAT ULANG"; btn.disabled = false;
+  loadAicWatch();
+}
+
+let aicWatchBusy = false;
+async function loadAicWatch() {
+  if (aicWatchBusy) return;
+  aicWatchBusy = true;
+  try {
+    const rows = await getJSON("/api/feed?type=watch");
+    const set = aic.data ? new Set((aic.data.early_all || []).map((e) => e.a)) : null;
+    const mine = rows.filter((r) => (set ? set.has(r.wallet) : r.watch === "AIC"));
+    $("#tblAicWatch tbody").innerHTML = mine.map((r) => `<tr>
+      <td>${fmtT(r.ts)}</td>
+      <td>${r.kind === "nft" ? "NFT" : "Token"}</td>
+      <td>${nameBtn(r.name || r.symbol || "?", r.contract)}</td>
+      <td>${r.kind === "nft" ? "#" + esc(r.token_id) : fmtBal(r.amount_ui || 0) + " " + esc(r.symbol || "")}</td>
+      <td>${r.price_bnb > 0 ? r.price_bnb + " BNB" : (r.cost_token_amount > 0 ? fmtN(r.cost_token_amount) + " " + esc(r.cost_token_symbol || "") : '<span class="free">GRATIS</span>')}</td>
+      <td><a href="${scan("address", r.wallet)}" target="_blank" rel="noopener">${short(r.wallet)}</a></td>
+      <td><a href="${scan("tx", r.tx)}" target="_blank" rel="noopener">${short(r.tx)}</a></td></tr>`).join("") ||
+      `<tr><td colspan="7" style="color:var(--mut)">Belum ada mint baru dari minter AIC sejak pantauan aktif. Tabel ini terisi otomatis begitu salah satu alamat itu mint token / NFT apa pun.</td></tr>`;
+    if (mine.length) $("#aicWatchSummary").textContent = `${fmtN(mine.length)} mint terpantau dari alamat minter AIC — diperbarui otomatis setiap siklus sinkron halaman.`;
+  } catch { /* gagal -> dicoba lagi siklus berikut */ }
+  aicWatchBusy = false;
 }
 
 let watchBusy = false;
@@ -674,20 +666,19 @@ document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
   b.classList.add("active"); state.tab = b.dataset.tab;
   $("#tblNft").hidden = state.tab !== "nft"; $("#tblTok").hidden = state.tab !== "tokens"; $("#tblCon").hidden = state.tab !== "contracts";
-  $("#panePrj").hidden = state.tab !== "projects";
   $("#paneJag").hidden = state.tab !== "jagent";
   $("#paneHol").hidden = state.tab !== "holders";
   $("#paneAic").hidden = state.tab !== "aic";
   if (state.tab === "holders" && !hol.data) loadHolders();
   if (state.tab === "holders") loadWatchFeed();
   if (state.tab === "aic" && !aic.data) loadAic();
+  if (state.tab === "aic") loadAicWatch();
 }));
 $("#refreshBtn").addEventListener("click", refresh);
 document.addEventListener("click", (ev) => {
   const b = ev.target.closest(".nm");
   if (b) openDetail(b.dataset.addr, b.dataset.name, b.dataset.tid);
 });
-$("#prjPaidOnly").addEventListener("change", renderProjects);
 $("#jagSync").addEventListener("click", syncJagent);
 $("#jagSearch").addEventListener("input", renderJagFind);
 $("#holLoad").addEventListener("click", loadHolders);
