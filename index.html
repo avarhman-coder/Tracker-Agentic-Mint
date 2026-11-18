@@ -160,6 +160,7 @@
   <button type="button" data-tab="contracts">KONTRAK · <span id="cCon">0</span></button>
   <button type="button" data-tab="jagent">JAGENT · <span id="cJag">0</span></button>
   <button type="button" data-tab="holders">HOLDER · <span id="cHol">0</span></button>
+  <button type="button" data-tab="aic">AIC · <span id="cAic">0</span></button>
 </nav>
 
 <main>
@@ -232,6 +233,28 @@
       <thead><tr><th>Waktu</th><th>Jenis</th><th>Proyek / Token</th><th>Jumlah / ID</th><th>Harga</th><th>Wallet holder</th><th>Tx</th></tr></thead>
       <tbody></tbody>
     </table>
+  </div>
+  <div id="paneAic" hidden>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+      <span style="font-size:12px">Token AIC · <span style="color:var(--mut)">0xfF0628D5E18C76c0deE4446411117F23AA2F6c1f</span></span>
+      <button type="button" id="aicLoad">MUAT ULANG</button>
+      <input id="aicSearch" type="text" placeholder="Cari alamat wallet…"
+        style="background:var(--panel);color:var(--txt);border:1px solid var(--line);padding:6px 10px;font:inherit;font-size:12px;min-width:200px">
+    </div>
+    <p id="aicSummary" style="color:var(--mut);font-size:12px;margin:0 0 10px">Snapshot AIC belum dimuat.</p>
+    <h3 style="margin:14px 0 6px;font-size:13px">Sudah mint / terima AIC sebelum pool buka</h3>
+    <p id="aicEarlySummary" style="color:var(--mut);font-size:12px;margin:0 0 10px">—</p>
+    <table id="tblAicEarly">
+      <thead><tr><th>#</th><th>Wallet</th><th>Terima sebelum pool</th><th>Blok pertama</th><th>Masih dipegang</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" id="aicEarlyMore" hidden style="margin:10px 0">MUAT 100 BERIKUTNYA</button>
+    <h3 style="margin:18px 0 6px;font-size:13px">Holder AIC saat ini</h3>
+    <table id="tblAic">
+      <thead><tr><th>#</th><th>Wallet</th><th>Saldo</th><th>% Suplai</th><th>Jenis</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button type="button" id="aicMore" hidden style="margin:10px 0">MUAT 100 BERIKUTNYA</button>
   </div>
 </main>
 
@@ -576,6 +599,58 @@ async function loadHolders() {
   btn.textContent = "MUAT"; btn.disabled = false;
 }
 
+const AIC_ADDR = "0xff0628d5e18c76c0dee4446411117f23aa2f6c1f";
+const aic = { data: null, shown: 0, earlyShown: 0 };
+function aicFiltered() {
+  const q = ($("#aicSearch").value || "").trim().toLowerCase();
+  const all = aic.data ? aic.data.holders : [];
+  return q ? all.filter((h) => h.a.includes(q)) : all;
+}
+function aicEarlyFiltered() {
+  const q = ($("#aicSearch").value || "").trim().toLowerCase();
+  const all = aic.data ? (aic.data.early_all || aic.data.early_exited || []) : [];
+  return q ? all.filter((h) => h.a.includes(q)) : all;
+}
+function renderAic() {
+  if (!aic.data) return;
+  const erows = aicEarlyFiltered();
+  const epage = erows.slice(0, aic.earlyShown);
+  $("#tblAicEarly tbody").innerHTML = epage.map((h, i) => `<tr>
+    <td>${i + 1}</td>
+    <td><a href="${scan("address", h.a)}" target="_blank" rel="noopener">${short(h.a)}</a></td>
+    <td>${fmtBal(h.b)}</td><td>${fmtN(h.f)}</td>
+    <td>${h.s != null ? fmtBal(h.s) : "—"}</td></tr>`).join("") ||
+    `<tr><td colspan="5" style="color:var(--mut)">Tidak ada yang cocok.</td></tr>`;
+  $("#aicEarlyMore").hidden = erows.length <= aic.earlyShown;
+  const rows = aicFiltered();
+  const page = rows.slice(0, aic.shown);
+  $("#tblAic tbody").innerHTML = page.map((h) => `<tr>
+    <td>${h.r}</td>
+    <td><a href="${scan("address", h.a)}" target="_blank" rel="noopener">${short(h.a)}</a></td>
+    <td>${fmtBal(h.b)}</td><td>${fmtPct(h.p)}</td>
+    <td>${h.c === true ? "Kontrak" : h.c === false ? "Wallet" : "—"}</td></tr>`).join("") ||
+    `<tr><td colspan="5" style="color:var(--mut)">Tidak ada holder yang cocok.</td></tr>`;
+  $("#aicMore").hidden = rows.length <= aic.shown;
+}
+async function loadAic() {
+  const btn = $("#aicLoad"); btn.textContent = "MEMUAT…"; btn.disabled = true;
+  try {
+    const j = await getJSON("/api/holders?token=" + AIC_ADDR);
+    j.holders.forEach((h, i) => { h.r = i + 1; });
+    aic.data = j; aic.shown = 100; aic.earlyShown = 100;
+    const when = new Date(j.snapshot_at * 1000).toLocaleString("id-ID");
+    const poolTxt = j.pool_open_block ? `pool dibuka di blok #${fmtN(j.pool_open_block)}` : "pool BELUM dibuka";
+    $("#aicSummary").textContent = `${j.name} (${j.symbol}) · ${fmtN(j.holders_count)} holder · snapshot blok #${fmtN(j.head_block)} (${when}) · total suplai ${fmtBal(j.total_supply)} · ${poolTxt} · ${fmtN(j.transfers_counted)} transfer terpindai dari blok penciptaan #${fmtN(j.creation_block)}`;
+    $("#aicEarlySummary").textContent = `${fmtN(j.early_recipients)} alamat menerima AIC dari kontrak sale sebelum pool dibuka; ${fmtN(j.early_still_holding)} masih jadi holder, ${fmtN(j.early_exited_count)} sudah keluar semua.`;
+    $("#cAic").textContent = j.early_recipients;
+    renderAic();
+  } catch (e) {
+    $("#aicSummary").textContent = "Gagal memuat snapshot AIC (" + e.message + ") — snapshot mungkin belum diterbitkan.";
+    $("#aicEarlySummary").textContent = "—";
+  }
+  btn.textContent = "MUAT ULANG"; btn.disabled = false;
+}
+
 let watchBusy = false;
 async function loadWatchFeed() {
   if (watchBusy) return;
@@ -602,8 +677,10 @@ document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click
   $("#panePrj").hidden = state.tab !== "projects";
   $("#paneJag").hidden = state.tab !== "jagent";
   $("#paneHol").hidden = state.tab !== "holders";
+  $("#paneAic").hidden = state.tab !== "aic";
   if (state.tab === "holders" && !hol.data) loadHolders();
   if (state.tab === "holders") loadWatchFeed();
+  if (state.tab === "aic" && !aic.data) loadAic();
 }));
 $("#refreshBtn").addEventListener("click", refresh);
 document.addEventListener("click", (ev) => {
@@ -618,6 +695,10 @@ $("#holAddr").addEventListener("keydown", (e) => { if (e.key === "Enter") loadHo
 $("#holSearch").addEventListener("input", () => { hol.shown = 100; hol.earlyShown = 100; renderHol(); });
 $("#holMore").addEventListener("click", () => { hol.shown += 100; renderHol(); });
 $("#holEarlyMore").addEventListener("click", () => { hol.earlyShown += 100; renderHol(); });
+$("#aicLoad").addEventListener("click", loadAic);
+$("#aicSearch").addEventListener("input", () => { aic.shown = 100; aic.earlyShown = 100; renderAic(); });
+$("#aicMore").addEventListener("click", () => { aic.shown += 100; renderAic(); });
+$("#aicEarlyMore").addEventListener("click", () => { aic.earlyShown += 100; renderAic(); });
 $("#dClose").addEventListener("click", () => $("#dlg").close());
 setInterval(() => { if (state.lastSync) $("#status").textContent = "sinkron " + Math.floor((Date.now() - state.lastSync) / 1000) + " dtk lalu"; }, 1000);
 loadLists();
