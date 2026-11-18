@@ -156,7 +156,6 @@
 <nav>
   <button type="button" data-tab="nft" class="active">MINT NFT · <span id="cNft">0</span></button>
   <button type="button" data-tab="tokens">TOKEN · <span id="cTok">0</span></button>
-  <button type="button" data-tab="contracts">KONTRAK · <span id="cCon">0</span></button>
   <button type="button" data-tab="jagent">JAGENT · <span id="cJag">0</span></button>
   <button type="button" data-tab="holders">HOLDER · <span id="cHol">0</span></button>
   <button type="button" data-tab="aic">AIC · <span id="cAic">0</span></button>
@@ -169,10 +168,6 @@
   </table>
   <table id="tblTok" hidden>
     <thead><tr><th>Waktu</th><th>Token</th><th>Harga Mint</th><th>Harga Pasar</th><th>Jumlah</th><th>Arah</th><th>Agent</th><th>Tx</th></tr></thead>
-    <tbody></tbody>
-  </table>
-  <table id="tblCon" hidden>
-    <thead><tr><th>Kontrak</th><th>Harga</th><th>Progres suplai</th><th>Sisa</th><th>% Agent</th><th>Mint terakhir</th></tr></thead>
     <tbody></tbody>
   </table>
   <div id="paneJag" hidden>
@@ -267,6 +262,8 @@
 
 <script>
 const $ = (s) => document.querySelector(s);
+// Blacklist tampilan (perintah Gusti 2026-11-19): JAGENT + AGC tidak ditampilkan di feed mana pun — datanya tetap tercatat di indexer.
+const BLACKLIST = new Set(["0x8e6442663a4f8c50b6132c68d42a30e7dfe4ae15", "0x63dea5acdbe1f27c968907d08610a5f0a0284ba6"]);
 const state = { nft: new Map(), tokens: new Map(), contracts: [], projects: [], lastSync: null, tab: "nft", prices: new Map(), mintCost: new Map() };
 const jag = { wallets: new Map(), totals: null, syncedAt: null, activity: [], actKeys: new Set() };
 function storeSet(k, v) { try { localStorage.setItem(k, v); } catch { /* penyimpanan penuh/tidak tersedia */ } }
@@ -420,13 +417,12 @@ async function updatePrices() {
 
 async function refresh() {
   try {
-    const [pulse, tstats, nft, tokens, contracts] = await Promise.all([
+    const [pulse, tstats, nft, tokens] = await Promise.all([
       getJSON("/api/feed?type=pulse"), getJSON("/api/feed?type=tokenstats"),
-      getJSON("/api/feed?type=nft"), getJSON("/api/feed?type=tokens"), getJSON("/api/feed?type=contracts"),
+      getJSON("/api/feed?type=nft"), getJSON("/api/feed?type=tokens"),
     ]);
     state.nft = new Map(nft.slice(0, 500).map((r) => [`${r.tx}:${r.log_index}:${r.token_id}`, r]));
-    state.tokens = new Map(tokens.slice(0, 500).map((r) => [`${r.tx}:${r.token}:${r.agent}:${r.amount_raw}`, r]));
-    state.contracts = contracts;
+    state.tokens = new Map(tokens.filter((r) => !BLACKLIST.has((r.token || "").toLowerCase())).slice(0, 500).map((r) => [`${r.tx}:${r.token}:${r.agent}:${r.amount_raw}`, r]));
     state.lastSync = Date.now();
     if (state.tab === "holders") loadWatchFeed();
     if (state.tab === "aic") loadAicWatch();
@@ -470,14 +466,7 @@ function renderTables() {
     <td>${fmtN(r.amount_ui)}</td><td>${r.direction === "in" ? "masuk" : "keluar"}</td>
     <td><a href="${scan("address", r.agent)}" target="_blank" rel="noopener">${short(r.agent)}</a></td>
     <td><a href="${scan("tx", r.tx)}" target="_blank" rel="noopener">${short(r.tx)}</a></td></tr>`).join("");
-  $("#tblCon tbody").innerHTML = state.contracts.map((r) => {
-    const pct = r.supply_max > 0 ? Math.min(100, (r.supply / r.supply_max) * 100) : 0;
-    return `<tr><td>${nameBtn(r.name, r.contract)}</td>
-    <td>${r.price_bnb > 0 ? r.price_bnb + " BNB" : '<span class="free">GRATIS</span>'}</td>
-    <td><div class="bar"><i style="width:${pct}%"></i></div> ${fmtN(r.supply)}/${fmtN(r.supply_max)}</td>
-    <td>${fmtN(r.left)}</td><td>${r.pct ?? "—"}%</td><td>${fmtT(r.last_ts)}</td></tr>`;
-  }).join("");
-  $("#cNft").textContent = state.nft.size; $("#cTok").textContent = state.tokens.size; $("#cCon").textContent = state.contracts.length;
+  $("#cNft").textContent = state.nft.size; $("#cTok").textContent = state.tokens.size;
 }
 
 async function openDetail(address, fallbackName, tokenId) {
@@ -628,7 +617,7 @@ async function loadAicWatch() {
   try {
     const rows = await getJSON("/api/feed?type=watch");
     const set = aic.data ? new Set((aic.data.early_all || []).map((e) => e.a)) : null;
-    const mine = rows.filter((r) => (set ? set.has(r.wallet) : r.watch === "AIC"));
+    const mine = rows.filter((r) => !BLACKLIST.has((r.contract || "").toLowerCase()) && (set ? set.has(r.wallet) : r.watch === "AIC"));
     $("#tblAicWatch tbody").innerHTML = mine.map((r) => `<tr>
       <td>${fmtT(r.ts)}</td>
       <td>${r.kind === "nft" ? "NFT" : "Token"}</td>
@@ -649,7 +638,7 @@ async function loadWatchFeed() {
   watchBusy = true;
   try {
     const rows = await getJSON("/api/feed?type=watch");
-    $("#tblHolWatch tbody").innerHTML = rows.map((r) => `<tr>
+    $("#tblHolWatch tbody").innerHTML = rows.filter((r) => !BLACKLIST.has((r.contract || "").toLowerCase())).map((r) => `<tr>
       <td>${fmtT(r.ts)}</td>
       <td>${r.kind === "nft" ? "NFT" : "Token"}</td>
       <td>${nameBtn(r.name || r.symbol || "?", r.contract)}</td>
@@ -665,7 +654,7 @@ async function loadWatchFeed() {
 document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
   b.classList.add("active"); state.tab = b.dataset.tab;
-  $("#tblNft").hidden = state.tab !== "nft"; $("#tblTok").hidden = state.tab !== "tokens"; $("#tblCon").hidden = state.tab !== "contracts";
+  $("#tblNft").hidden = state.tab !== "nft"; $("#tblTok").hidden = state.tab !== "tokens";
   $("#paneJag").hidden = state.tab !== "jagent";
   $("#paneHol").hidden = state.tab !== "holders";
   $("#paneAic").hidden = state.tab !== "aic";
