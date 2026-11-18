@@ -159,6 +159,7 @@
   <button type="button" data-tab="jagent">JAGENT · <span id="cJag">0</span></button>
   <button type="button" data-tab="holders">HOLDER · <span id="cHol">0</span></button>
   <button type="button" data-tab="aic">AIC · <span id="cAic">0</span></button>
+  <button type="button" data-tab="kol">KOL · <span id="cKol">0</span></button>
 </nav>
 
 <main>
@@ -235,6 +236,19 @@
     <p id="aicWatchSummary" style="color:var(--mut);font-size:12px;margin:0 0 10px">Ke-938 alamat minter AIC dipantau indexer secara langsung: setiap mint token / NFT baru oleh alamat-alamat ini muncul di sini, up to date.</p>
     <table id="tblAicWatch">
       <thead><tr><th>Waktu</th><th>Jenis</th><th>Proyek / Token</th><th>Jumlah / ID</th><th>Harga</th><th>Wallet minter</th><th>Tx</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div id="paneKol" hidden>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+      <span style="font-size:12px">Pelacakan wallet KOL — semua token masuk, mint, dan swap, up to date:</span>
+      <button type="button" class="kolChip" data-kol="all">SEMUA</button>
+      <button type="button" class="kolChip" data-kol="Awen">AWEN</button>
+      <button type="button" class="kolChip" data-kol="Setya">SETYA</button>
+    </div>
+    <p id="kolSummary" style="color:var(--mut);font-size:12px;margin:0 0 10px">Awen 0x76e90795…40829 · Setya 0x8B3826Ff…95820 — dicatat indexer secara langsung dari transfer on-chain kedua wallet.</p>
+    <table id="tblKol">
+      <thead><tr><th>Waktu</th><th>KOL</th><th>Jenis</th><th>Token</th><th>Jumlah / ID</th><th>Dari / Ke</th><th>Biaya / Leg</th><th>Tx</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -420,6 +434,7 @@ async function refresh() {
     state.lastSync = Date.now();
     if (state.tab === "holders") loadWatchFeed();
     if (state.tab === "aic") loadAicWatch();
+    if (state.tab === "kol") loadKol();
     updatePrices();
     updateMintCosts();
     matchJagActivity();
@@ -611,6 +626,34 @@ async function loadAicWatch() {
   aicWatchBusy = false;
 }
 
+const kol = { rows: [], filter: "all", busy: false };
+const KOL_KIND = { mint: "MINT", beli: "BELI · swap", jual: "JUAL · swap", presale: "PRESALE", masuk: "MASUK", keluar: "KELUAR" };
+function renderKol() {
+  const rows = kol.filter === "all" ? kol.rows : kol.rows.filter((r) => r.kol === kol.filter);
+  $("#tblKol tbody").innerHTML = rows.map((r) => `<tr>
+    <td>${fmtT(r.ts)}</td>
+    <td>${esc(r.kol || "")}</td>
+    <td>${KOL_KIND[r.kind] || r.kind}</td>
+    <td>${nameBtn(r.name || r.symbol || "?", r.token)}</td>
+    <td>${r.token_id != null ? "#" + esc(r.token_id) : fmtBal(r.amount_ui || 0) + " " + esc(r.symbol || "")}</td>
+    <td><a href="${scan("address", r.counterparty)}" target="_blank" rel="noopener">${short(r.counterparty)}</a></td>
+    <td>${r.price_bnb > 0 ? r.price_bnb + " BNB" : (r.cost_token_amount > 0 ? fmtN(r.cost_token_amount) + " " + esc(r.cost_token_symbol || "") : "—")}</td>
+    <td><a href="${scan("tx", r.tx)}" target="_blank" rel="noopener">${short(r.tx)}</a></td></tr>`).join("") ||
+    `<tr><td colspan="8" style="color:var(--mut)">Belum ada aktivitas tercatat untuk pilihan ini. Baris baru muncul otomatis begitu wallet KOL bergerak.</td></tr>`;
+  $("#cKol").textContent = kol.rows.length;
+  if (kol.rows.length) $("#kolSummary").textContent = `${fmtN(kol.rows.length)} aktivitas KOL tercatat (terbaru di atas) — diperbarui otomatis setiap siklus sinkron halaman.`;
+}
+async function loadKol() {
+  if (kol.busy) return;
+  kol.busy = true;
+  try {
+    kol.rows = await getJSON("/api/feed?type=kol");
+    renderKol();
+  } catch { /* gagal -> dicoba lagi siklus berikut */ }
+  kol.busy = false;
+}
+document.querySelectorAll(".kolChip").forEach((b) => b.addEventListener("click", () => { kol.filter = b.dataset.kol; renderKol(); }));
+
 let watchBusy = false;
 async function loadWatchFeed() {
   if (watchBusy) return;
@@ -637,10 +680,12 @@ document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click
   $("#paneJag").hidden = state.tab !== "jagent";
   $("#paneHol").hidden = state.tab !== "holders";
   $("#paneAic").hidden = state.tab !== "aic";
+  $("#paneKol").hidden = state.tab !== "kol";
   if (state.tab === "holders" && !hol.data) loadHolders();
   if (state.tab === "holders") loadWatchFeed();
   if (state.tab === "aic" && !aic.data) loadAic();
   if (state.tab === "aic") loadAicWatch();
+  if (state.tab === "kol") loadKol();
 }));
 $("#refreshBtn").addEventListener("click", refresh);
 document.addEventListener("click", (ev) => {

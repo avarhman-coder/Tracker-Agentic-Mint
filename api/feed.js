@@ -19,6 +19,7 @@ const FILES = {
   tokenstats: "tokenstats.json",
   watch: "watch.json",
   projects: "projects.json",
+  kol: "kol.json",
 };
 const VPS_PATHS = {
   nft: "/api/pulse/feed",
@@ -28,6 +29,7 @@ const VPS_PATHS = {
   tokenstats: "/api/tokens/stats",
   watch: "/api/watch/feed",
   projects: "/api/tokens/projects",
+  kol: "/api/kol/feed",
 };
 
 function jsonResponse(body) {
